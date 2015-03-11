@@ -1,24 +1,26 @@
-package casia.isiteam.FileTransfer.sender;
+package casia.isiteam.FileTransfer.sender2;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import casia.isiteam.FileTransfer.common.FileInfo;
-import casia.isiteam.FileTransfer.common.ResultCode;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
+import io.netty.handler.codec.LineBasedFrameDecoder;
 import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.stream.ChunkedFile;
@@ -28,55 +30,36 @@ import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 
-public class FileSender extends Thread {
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import casia.isiteam.FileTransfer.common.FileInfo;
+import casia.isiteam.FileTransfer.common.ResultCode;
+import casia.isiteam.FileTransfer.sender.FileSender;
+import casia.isiteam.FileTransfer.sender.FileSenderHandler;
+
+/**
+ * Server that accept the path of a file an echo back its content.
+ */
+public class FileSender2 extends Thread{
+
 	String host;
 	int fileTransferPort;
 	Channel ch = null;
-	EventExecutor executor = new DefaultEventExecutor();
-	public EventExecutor getExecutor() {
-		return executor;
-	}
 
-	ConcurrentLinkedQueue<Promise<ResultCode>> promiseQueue = new ConcurrentLinkedQueue<Promise<ResultCode>>();
-
-
-
-	public FileSender(String host, int fileTransferPort) {
+	public FileSender2(String host, int fileTransferPort) {
 		this.host = host;
 		this.fileTransferPort = fileTransferPort;
 	}
-
-	public Future<ResultCode> sendFile(final FileInfo fileInfo) {
-
-		executor.submit(new Callable<Void>() {
-
-			public Void call() throws Exception {
-			
-				byte[] b = fileInfo.getFileName().getBytes();					
-				
-				ByteBuf buf = ch.alloc().buffer();
-				
-							
-				buf.writeInt(b.length);
-				buf.writeBytes(fileInfo.getFileName().getBytes());
-				buf.writeLong(fileInfo.getFileLength());
-				
-				ch.writeAndFlush(buf);				
-				ch.writeAndFlush(new ChunkedFile(fileInfo.getFile()));
-
-				return null;
-			}
-		});
-
-		// 写完之后 ，应该收到回复才确认真的完成了。
-		Promise<ResultCode> ret = executor.newPromise();
-
-		promiseQueue.offer(ret);
-		return ret;
-	}
-
-	public ConcurrentLinkedQueue<Promise<ResultCode>> getPromiseQueue() {
-		return promiseQueue;
+	
+	public void sendFile(String filePath) throws IOException {
+		File file=new File(filePath);		
+		ch.writeAndFlush(new ChunkedFullFile(file));
 	}
 	
 	@Override
@@ -84,7 +67,7 @@ public class FileSender extends Thread {
 
 		EventLoopGroup group = new NioEventLoopGroup();
 
-		final FileSender fileSender = this;
+		final FileSender2 fileSender = this;
 		try {
 			Bootstrap bootstrap = new Bootstrap();
 			bootstrap.channel(NioSocketChannel.class);
@@ -95,8 +78,9 @@ public class FileSender extends Thread {
 				protected void initChannel(SocketChannel ch) throws Exception {
 					ChannelPipeline p = ch.pipeline();
 
-					//decoder
 					p.addLast(new LoggingHandler(LogLevel.INFO));
+					
+					//decoder					
 					p.addLast(new LengthFieldBasedFrameDecoder(
 							Integer.MAX_VALUE, 0, Integer.BYTES, 0,
 							Integer.BYTES));
@@ -107,7 +91,7 @@ public class FileSender extends Thread {
 					p.addLast(new ChunkedWriteHandler());
 					
 					//business logic
-					p.addLast(new FileSenderHandler(fileSender));
+					//p.addLast(new FileSenderHandler2(fileSender));
 				}
 			});
 
@@ -157,4 +141,6 @@ public class FileSender extends Thread {
 			}.start();
 		}
 	}
+
+	
 }

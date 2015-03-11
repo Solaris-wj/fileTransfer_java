@@ -1,7 +1,8 @@
-package casia.isiteam.FileTransfer.receiver;
+package casia.isiteam.FileTransfer.receiver2;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import casia.isiteam.FileTransfer.receiver.FileReceiver;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -16,26 +17,35 @@ import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
-public class FileReceiver extends Thread{
+public class FileReceiver2 extends Thread {
+
 	String host;
 	int fileTransferPort;
+	AtomicInteger fileNum = new AtomicInteger(2);
+	String fileDir = "C:/";
+	boolean useFileNameOnClient = false;
 	
-	String fileDir="C:/";
-
-
-	AtomicInteger fileNum=new AtomicInteger(2);
-	
-	public FileReceiver(String host, int fileTransferPort){
+	public FileReceiver2(String host, int fileTransferPort){
 		this.host=host;
 		this.fileTransferPort=fileTransferPort;
 		
 	}
-	@Override
-	public void run(){
+	
+	public String getNextFileName(String fileNameOnClient) {
+
+		int ind = fileNameOnClient.lastIndexOf('.');
+
+		String extString = fileNameOnClient.substring(ind,
+				fileNameOnClient.length());
+
+		return fileNum.getAndIncrement() + extString;
+	}
+
+	public void connect(int port, String host) throws Exception {
 		EventLoopGroup group = new NioEventLoopGroup();
 		EventLoopGroup workGroup = new NioEventLoopGroup();
 		
-		final FileReceiver fileReceiver=this;
+		final FileReceiver2 fileReceiver=this;
 		try {
 			ServerBootstrap sBootstrap = new ServerBootstrap();
 			sBootstrap.group(group, workGroup);
@@ -58,7 +68,7 @@ public class FileReceiver extends Thread{
 							//encoder
 							cp.addLast(new LengthFieldPrepender(Integer.BYTES));
 							
-							cp.addLast(new FileReceiverHandler(fileReceiver));
+							cp.addLast(new FileReceiverHandler2(fileReceiver));
 						}
 					});
 
@@ -68,35 +78,18 @@ public class FileReceiver extends Thread{
 
 			//等待服务器关闭，会阻塞线程
 			f.channel().closeFuture().sync();
-			
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			//Util.printContextInfo(null);
-		}
-		finally{
+		}finally{
 			group.shutdownGracefully();
 			workGroup.shutdownGracefully();
 		}
 	}
-	
-	public String getNextFileName(String fileNameOnClient) {
 
-		int ind = fileNameOnClient.lastIndexOf('.');
+	public static void main(String[] args) throws Exception {
 
-		String extString = fileNameOnClient.substring(ind,
-				fileNameOnClient.length());
+		FileReceiver fileReceiver = new FileReceiver("0.0.0.0", 9001);
 
-		return fileNum.getAndIncrement() + extString;
-	}
-	
-	public String getFileDir() {
-		return fileDir;
-	}
-	
-	public static void main(String [] args){
-		FileReceiver fileReceiver=new FileReceiver("0.0.0.0",9001);
-		
 		fileReceiver.start();
+
 	}
+
 }

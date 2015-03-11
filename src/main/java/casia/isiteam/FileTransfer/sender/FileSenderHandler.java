@@ -1,21 +1,36 @@
 package casia.isiteam.FileTransfer.sender;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-
+import casia.isiteam.FileTransfer.common.ResultCode;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.concurrent.FutureListener;
 import io.netty.util.concurrent.Promise;
 
 public class FileSenderHandler extends ChannelHandlerAdapter {
 
-	ConcurrentLinkedQueue<Promise<Object>> promiseQueue;
+	FileSender fileSender;
+	public FileSenderHandler(FileSender fileSender){
+		this.fileSender=fileSender;
+	}
+	
+	@Override
+	public void channelActive(ChannelHandlerContext ctx) throws Exception{
+		System.out.println("channelActive");
+	}
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception{
-		Promise<Object> dp=promiseQueue.poll();
-		dp.setSuccess(null);
+		Promise<ResultCode> dp=fileSender.getPromiseQueue().poll();
+		
+		String ret=(String)msg;
+		
+		dp.setSuccess(new ResultCode().setRetsult(ret));
+		
+		
 	}
-	public ConcurrentLinkedQueue<Promise<Object>> getPromiseQueue() {
-		return promiseQueue;
+	
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception{
+		
+		cause.printStackTrace();
 	}
+	
 }

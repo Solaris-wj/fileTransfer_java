@@ -14,6 +14,7 @@ import io.netty.util.concurrent.Promise;
  * Hello world!
  *
  */
+
 public class App {
 	
 	public static void main(String[] args) {
@@ -44,6 +45,10 @@ public class App {
 		
 		Promise<String> dp=executor.newPromise();
 		
+		//dp.setSuccess(null);
+		
+		dp.setFailure(null);
+		
 		dp.addListener(new FutureListener<String>() {	
 
 			public void operationComplete(Future<String> future)
@@ -54,7 +59,7 @@ public class App {
 			}
 			
 		});
-		dp.setSuccess(null);
+		
 		executor.shutdownGracefully();
 	}
 }

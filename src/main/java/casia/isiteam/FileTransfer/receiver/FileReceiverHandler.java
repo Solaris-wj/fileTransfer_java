@@ -1,6 +1,7 @@
 package casia.isiteam.FileTransfer.receiver;
 
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 
@@ -25,6 +26,8 @@ public class FileReceiverHandler extends ChannelHandlerAdapter {
 	@Override
 	public void channelRead(ChannelHandlerContext ctx, Object msg)
 			throws Exception {
+		
+		System.out.println("channelRead");
 		ByteBuf buf = (ByteBuf) msg;
 
 		if (fileInfo == null) {
@@ -33,11 +36,17 @@ public class FileReceiverHandler extends ChannelHandlerAdapter {
 			byte[] dst = new byte[fileNameLength];
 
 			buf.readBytes(dst);
-			String nameOnClient = new String(dst, "UTF-8");
+			String nameOnClient = new String(dst);
 			long fileLength = buf.readLong();
 			fileInfo = new FileInfo(nameOnClient, fileLength);
-			out=new FileOutputStream(fileReceiver.getNameFileName(nameOnClient));
+			out=new FileOutputStream(new File(fileReceiver.getFileDir(),fileReceiver.getNextFileName(nameOnClient)));
 			bout=new BufferedOutputStream(out);
+			
+			buf.resetReaderIndex();
+			System.out.println(buf.readableBytes());
+			byte[] b=new byte[buf.readableBytes()];
+			buf.readBytes(b);
+			System.out.println(new String(b));
 		}
 		
 		readedSize+=buf.readableBytes();
@@ -51,8 +60,16 @@ public class FileReceiverHandler extends ChannelHandlerAdapter {
 			bout.close();
 			out.close();
 			fileInfo=null;
-		}
+			
+			ctx.writeAndFlush(Unpooled.copiedBuffer(ResultCode.success.getBytes()));
+		}	
 		
-		ctx.writeAndFlush(Unpooled.copiedBuffer(ResultCode.success.getBytes()));
+	}
+	
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, Throwable e){
+		ctx.writeAndFlush(Unpooled.copiedBuffer(ResultCode.error.getBytes()));
+		
+		ctx.close();
 	}
 }
